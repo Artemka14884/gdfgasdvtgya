@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Танчики - 5 игроков</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        
+        body {
+            background: #1a1a2e;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            font-family: 'Arial', sans-serif;
+        }
+        
+        #gameContainer {
+            position: relative;
+            background: #16213e;
+            border-radius: 10px;
+            box-shadow: 0 0 30px rgba(0,0,0,0.8);
+            overflow: hidden;
+        }
+        
+        canvas {
+            display: block;
+            background: #1a1a2e;
+            width: 100%;
+            height: auto;
+            touch-action: none;
+        }
+        
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            display: flex;
+            justify-content: space-between;
+            pointer-events: none;
+            z-index: 10;
+        }
+        
+        #hud {
+            color: white;
+            font-size: 14px;
+            background: rgba(0,0,0,0.7);
+            padding: 8px 15px;
+            border-radius: 8px;
+            pointer-events: auto;
+            max-width: 60%;
+        }
+        
+        #hud .player-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 2px 0;
+            font-size: 12px;
+        }
+        
+        #hud .hp-bar {
+            width: 60px;
+            height: 6px;
+            background: #333;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        
+        #hud .hp-fill {
+            height: 100%;
+            background: #4caf50;
+            transition: width 0.1s;
+        }
+        
+        #hud .hp-fill.low {
+            background: #f44336;
+        }
+        
+        .color-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+        
+        #controls {
+            position: absolute;
+            bottom: 15px;
+            left: 15px;
+            right: 15px;
+            display: none;
+            justify-content: space-between;
+            pointer-events: none;
+            z-index: 20;
+        }
+        
+        #controls button {
+            pointer-events: auto;
+            background: rgba(255,255,255,0.2);
+            border: 2px solid rgba(255,255,255,0.4);
+            border-radius: 50%;
+            color: white;
+            font-size: 28px;
+            width: 65px;
+            height: 65px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(5px);
+            touch-action: none;
+            transition: transform 0.1s;
+        }
+        
+        #controls button:active {
+            transform: scale(0.9);
+            background: rgba(255,255,255,0.4);
+        }
+        
+        .controls-left {
+            display: grid;
+            grid-template-columns: 65px 65px;
+            grid-template-rows: 65px 65px;
+            gap: 5px;
+            pointer-events: none;
+        }
+        
+        .controls-left button {
+            pointer-events: auto;
+        }
+        
+        .controls-right {
+            display: flex;
+            gap: 10px;
+            pointer-events: none;
+            align-items: flex-end;
+        }
+        
+        .controls-right button {
+            pointer-events: auto;
+        }
+        
+        #btn-up { grid-column: 1; grid-row: 1; }
+        #btn-left { grid-column: 1; grid-row: 2; }
+        #btn-right { grid-column: 2; grid-row: 2; }
+        #btn-down { grid-column: 2; grid-row: 1; }
+        
+        .btn-shoot {
+            background: rgba(255,50,50,0.4) !important;
+            border-color: rgba(255,50,50,0.6) !important;
+            font-size: 20px !important;
+            width: 75px !important;
+            height: 75px !important;
+        }
+        
+        .btn-shoot:active {
+            background: rgba(255,50,50,0.7) !important;
+        }
+        
+        @media (max-width: 768px) {
+            #controls {
+                display: flex !important;
+            }
+            #hud {
+                font-size: 11px;
+                padding: 5px 10px;
+            }
+            #hud .player-info {
+                font-size: 10px;
+            }
+            #hud .hp-bar {
+                width: 40px;
+                height: 4px;
+            }
+            #controls button {
+                width: 55px;
+                height: 55px;
+                font-size: 22px;
+            }
+            .controls-left {
+                grid-template-columns: 55px 55px;
+                grid-template-rows: 55px 55px;
+                gap: 4px;
+            }
+            .btn-shoot {
+                width: 65px !important;
+                height: 65px !important;
+                font-size: 16px !important;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            #controls button {
+                width: 50px;
+                height: 50px;
+                font-size: 18px;
+            }
+            .controls-left {
+                grid-template-columns: 50px 50px;
+                grid-template-rows: 50px 50px;
+                gap: 3px;
+            }
+            .btn-shoot {
+                width: 60px !important;
+                height: 60px !important;
+                font-size: 14px !important;
+            }
+        }
+        
+        #gameOver {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.85);
+            padding: 30px 40px;
+            border-radius: 15px;
+            color: white;
+            text-align: center;
+            z-index: 30;
+            pointer-events: auto;
+            border: 2px solid rgba(255,255,255,0.2);
+        }
+        
+        #gameOver h2 {
+            font-size: 28px;
+            margin-bottom: 15px;
+        }
+        
+        #gameOver .winner {
+            font-size: 24px;
+            margin: 10px 0;
+        }
+        
+        #gameOver .score {
+            font-size: 16px;
+            opacity: 0.8;
+        }
+        
+        #statusMessage {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 24px;
+            background: rgba(0,0,0,0.7);
+            padding: 15px 30px;
+            border-radius: 10px;
+            display: none;
+            z-index: 15;
+            text-align: center;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+        
+        <div id="ui">
+            <div id="hud"></div>
+        </div>
+        
+        <div id="controls">
+            <div class="controls-left">
+                <button id="btn-up">▲</button>
+                <button id="btn-down">▼</button>
+                <button id="btn-left">◄</button>
+                <button id="btn-right">►</button>
+            </div>
+            <div class="controls-right">
+                <button id="btn-shoot" class="btn-shoot">💥</button>
+            </div>
+        </div>
+        
+        <div id="gameOver">
+            <h2>🏆 ИГРА ОКОНЧЕНА</h2>
+            <div class="winner" id="winnerDisplay"></div>
+            <div class="score" id="scoreDisplay"></div>
+        </div>
+        
+        <div id="statusMessage"></div>
+    </div>
+    
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.getElementById('gameContainer');
+        const hud = document.getElementById('hud');
+        const statusMsg = document.getElementById('statusMessage');
+        const gameOverDiv = document.getElementById('gameOver');
+        
+        let socket;
+        let myId = null;
+        let players = {};
+        let bullets = [];
+        let walls = [];
+        let mapSize = 2000;
+        let camera = { x: 0, y: 0 };
+        let scale = 1;
+        
+        // Touch/mobile controls
+        const keys = { forward: false, backward: false, left: false, right: false };
+        
+        // Setup canvas
+        function resizeCanvas() {
+            const maxWidth = window.innerWidth;
+            const maxHeight = window.innerHeight;
+            const aspect = 1;
+            
+            let w = Math.min(maxWidth - 20, 900);
+            let h = w;
+            
+            if (h > maxHeight - 20) {
+                h = maxHeight - 20;
+                w = h;
+            }
+            
+            canvas.width = w;
+            canvas.height = h;
+            container.style.width = w + 'px';
+            container.style.height = h + 'px';
+            
+            scale = w / 800;
+        }
+        
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        
+        // Connect to server
+        socket = io();
+        
+        socket.on('serverFull', (data) => {
+            showStatus('Сервер заполнен (макс 5 игроков)', 3000);
+        });
+        
+        socket.on('init', (data) => {
+            myId = data.id;
+            players = data.players;
+            walls = data.walls || [];
+            mapSize = data.mapSize || 2000;
+            showStatus(`Добро пожаловать! Танк ${players[myId]?.name || ''}`, 2000);
+            updateHUD();
+        });
+        
+        socket.on('playerJoined', (data) => {
+            showStatus(`${data.name} присоединился!`, 1500);
+        });
+        
+        socket.on('playerLeft', (id) => {
+            if (players[id]) {
+                showStatus(`${players[id].name} вышел`, 1500);
+                delete players[id];
+                updateHUD();
+            }
+        });
+        
+        socket.on('playerRespawn', (data) => {
+            if (players[data.id]) {
+                players[data.id].x = data.x;
+                players[data.id].y = data.y;
+                players[data.id].alive = true;
+                players[data.id].hp = 100;
+                players[data.id].shieldTimer = 60;
+                showStatus(`${data.name} возродился!`, 1000);
+                updateHUD();
+            }
+        });
+        
+        socket.on('playerKilled', (data) => {
+            if (data.killerName) {
+                showStatus(`${data.victimName} уничтожен ${data.killerName}!`, 2000);
+            } else {
+                showStatus(`${data.victimName} уничтожен!`, 2000);
+            }
+            if (players[data.victim]) {
+                players[data.victim].alive = false;
+            }
+            updateHUD();
+        });
+        
+        socket.on('playerHit', (data) => {
+            if (players[data.id]) {
+                players[data.id].hp = data.hp;
+                updateHUD();
+            }
+        });
+        
+        socket.on('bulletFired', (data) => {
+            bullets.push({ x: data.x, y: data.y, angle: data.angle });
+        });
+        
+        socket.on('bulletHitWall', (data) => {
+            // Visual effect could be added here
+        });
+        
+        socket.on('gameState', (data) => {
+            players = data.players;
+            bullets = data.bullets;
+            updateHUD();
+            checkGameOver();
+        });
+        
+        function checkGameOver() {
+            const alive = Object.values(players).filter(p => p.alive);
+            if (alive.length <= 1 && Object.keys(players).length >= 2) {
+                const winner = alive[0];
+                if (winner) {
+                    gameOverDiv.style.display = 'block';
+                    document.getElementById('winnerDisplay').textContent = 
+                        `🎉 ${winner.name} победил!`;
+                    document.getElementById('scoreDisplay').textContent = 
+                        `Убийств: ${winner.kills} | Очки: ${winner.score}`;
+                    showStatus(`🏆 ${winner.name} победил!`, 5000);
+                }
+            } else {
+                gameOverDiv.style.display = 'none';
+            }
+        }
+        
+        function updateHUD() {
+            if (!myId || !players[myId]) return;
+            
+            const me = players[myId];
+            let html = `<div style="font-weight:bold;color:${me.color};margin-bottom:5px;">
+                Танк ${me.name} ❤️ ${me.hp}%
+            </div>`;
+            
+            const sorted = Object.values(players).sort((a,b) => b.score - a.score);
+            sorted.forEach(p => {
+                const isMe = p.id === myId;
+                const hpPercent = Math.max(0, (p.hp / p.maxHp) * 100);
+                const hpColor = hpPercent < 30 ? '#f44336' : '#4caf50';
+                html += `
+                    <div class="player-info" style="${isMe ? 'background:rgba(255,255,255,0.1);border-radius:4px;padding:2px 6px;' : ''}">
+                        <span class="color-dot" style="background:${p.color}"></span>
+                        <span style="${isMe ? 'font-weight:bold;' : ''}">${p.name}</span>
+                        <span style="font-size:10px;opacity:0.6;">${p.alive ? '✅' : '💀'}</span>
+                        <span style="font-size:10px;opacity:0.7;">${p.kills}K</span>
+                        <div class="hp-bar">
+                            <div class="hp-fill ${hpPercent < 30 ? 'low' : ''}" style="width:${hpPercent}%"></div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            hud.innerHTML = html;
+        }
+        
+        function showStatus(text, duration = 2000) {
+            statusMsg.textContent = text;
+            statusMsg.style.display = 'block';
+            clearTimeout(statusMsg._timer);
+            statusMsg._timer = setTimeout(() => {
+                statusMsg.style.display = 'none';
+            }, duration);
+        }
+        
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'w' || e.key === 'ArrowUp') keys.forward = true;
+            if (e.key === 's' || e.key === 'ArrowDown') keys.backward = true;
+            if (e.key === 'a' || e.key === 'ArrowLeft') keys.left = true;
+            if (e.key === 'd' || e.key === 'ArrowRight') keys.right = true;
+            if (e.key === ' ') {
+                e.preventDefault();
+                socket.emit('shoot');
+            }
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'w' || e.key === 'ArrowUp') keys.forward = false;
+            if (e.key === 's' || e.key === 'ArrowDown') keys.backward = false;
+            if (e.key === 'a' || e.key === 'ArrowLeft') keys.left = false;
+            if (e.key === 'd' || e.key === 'ArrowRight') keys.right = false;
+        });
+        
+        // Mobile controls
+        function setupTouchButton(id, key) {
+            const btn = document.getElementById(id);
+            if (!btn) return;
+            
+            btn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                if (key === 'shoot') {
+                    socket.emit('shoot');
+                    btn.style.transform = 'scale(0.85)';
+                } else {
+                    keys[key] = true;
+                }
+            });
+            
+            btn.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                if (key === 'shoot') {
+                    btn.style.transform = 'scale(1)';
+                } else {
+                    keys[key] = false;
+                }
+            });
+            
+            btn.addEventListener('touchcancel', (e) => {
+                if (key !== 'shoot') keys[key] = false;
+                btn.style.transform = 'scale(1)';
+            });
+            
+            // Mouse support for testing
+            btn.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                if (key === 'shoot') {
+                    socket.emit('shoot');
+                } else {
+                    keys[key] = true;
+                }
+            });
+            
+            btn.addEventListener('mouseup', (e) => {
+                e.preventDefault();
+                if (key !== 'shoot') keys[key] = false;
+            });
+            
+            btn.addEventListener('mouseleave', (e) => {
+                if (key !== 'shoot') keys[key] = false;
+            });
+        }
+        
+        setupTouchButton('btn-up', 'forward');
+        setupTouchButton('btn-down', 'backward');
+        setupTouchButton('btn-left', 'left');
+        setupTouchButton('btn-right', 'right');
+        setupTouchButton('btn-shoot', 'shoot');
+        
+        // Send movement updates
+        setInterval(() => {
+            socket.emit('move', keys);
+        }, 1000 / 30);
+        
+        // Game loop - rendering
+        function gameLoop() {
+            render();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        function render() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Find local player
+            const me = myId && players[myId] ? players[myId] : null;
+            
+            // Camera follows player
+            if (me) {
+                camera.x = me.x - canvas.width / 2 / (canvas.width / mapSize);
+                camera.y = me.y - canvas.height / 2 / (canvas.height / mapSize);
+            } else {
+                camera.x = mapSize / 2 - canvas.width / 2;
+                camera.y = mapSize / 2 - canvas.height / 2;
+            }
+            
+            const scaleX = canvas.width / mapSize;
+            const scaleY = canvas.height / mapSize;
+            
+            function worldToScreen(wx, wy) {
+                return {
+                    x: (wx - camera.x) * scaleX,
+                    y: (wy - camera.y) * scaleY
+                };
+            }
+            
+            // Draw map border
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw grid
+            ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= mapSize; i += 100) {
+                const p1 = worldToScreen(i, 0);
+                const p2 = worldToScreen(i, mapSize);
+                ctx.beginPath();
+                ctx.moveTo(p1.x, p1.y);
+                ctx.lineTo(p2.x, p2.y);
+                ctx.stroke();
+                
+                const p3 = worldToScreen(0, i);
+                const p4 = worldToScreen(mapSize, i);
+                ctx.beginPath();
+                ctx.moveTo(p3.x, p3.y);
+                ctx.lineTo(p4.x, p4.y);
+                ctx.stroke();
+            }
+            
+            // Draw walls
+            walls.forEach(wall => {
+                const p1 = worldToScreen(wall.x, wall.y);
+                const p2 = worldToScreen(wall.x + wall.w, wall.y + wall.h);
+                ctx.fillStyle = wall.color || '#555';
+                ctx.fillRect(p1.x, p1.y, p2.x - p1.x, p2.y - p1.y);
+                ctx.strokeStyle = '#444';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(p1.x, p1.y, p2.x - p1.x, p2.y - p1.y);
+            });
+            
+            // Draw bullets
+            bullets.forEach(b => {
+                const pos = worldToScreen(b.x, b.y);
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y, 3 * (canvas.width / 800), 0, Math.PI * 2);
+                ctx.fillStyle = '#ffeb3b';
+                ctx.fill();
+                ctx.shadowColor = '#ffeb3b';
+                ctx.shadowBlur = 10;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            });
+            
+            // Draw players
+            Object.values(players).forEach(p => {
+                const pos = worldToScreen(p.x, p.y);
+                const radius = p.radius * (canvas.width / 800);
+                
+                // Shadow
+                ctx.shadowColor = 'rgba(0,0,0,0.3)';
+                ctx.shadowBlur = 10;
+                
+                // Tank body
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
+                ctx.fillStyle = p.alive ? p.color : '#555';
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                ctx.shadowBlur = 0;
+                
+                // Shield effect
+                if (p.shieldTimer > 0 && p.alive) {
+                    ctx.beginPath();
+                    ctx.arc(pos.x, pos.y, radius + 5, 0, Math.PI * 2);
+                    ctx.strokeStyle = `rgba(100, 200, 255, ${0.3 + 0.3 * Math.sin(Date.now() / 200)})`;
+                    ctx.lineWidth = 3;
+                    ctx.setLineDash([5, 5]);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+                
+                // HP bar
+                if (p.alive) {
+                    const hpWidth = radius * 1.6;
+                    const hpHeight = 4;
+                    const hpX = pos.x - hpWidth / 2;
+                    const hpY = pos.y - radius - 10;
+                    const hpPercent = Math.max(0, p.hp / p.maxHp);
+                    
+                    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+                    ctx.fillRect(hpX, hpY, hpWidth, hpHeight);
+                    ctx.fillStyle = hpPercent < 0.3 ? '#f44336' : '#4caf50';
+                    ctx.fillRect(hpX, hpY, hpWidth * hpPercent, hpHeight);
+                }
+                
+                // Turret
+                if (p.alive) {
+                    ctx.beginPath();
+                    ctx.moveTo(pos.x, pos.y);
+                    ctx.lineTo(
+                        pos.x + Math.cos(p.angle) * radius * 1.5,
+                        pos.y + Math.sin(p.angle) * radius * 1.5
+                    );
+                    ctx.strokeStyle = '#fff';
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                    
+                    // Barrel tip
+                    ctx.beginPath();
+                    ctx.arc(
+                        pos.x + Math.cos(p.angle) * radius * 1.5,
+                        pos.y + Math.sin(p.angle) * radius * 1.5,
+                        3, 0, Math.PI * 2
+                    );
+                    ctx.fillStyle = '#ffeb3b';
+                    ctx.fill();
+                }
+                
+                // Name label
+                ctx.fillStyle = p.id === myId ? '#fff' : 'rgba(255,255,255,0.7)';
+                ctx.font = `${12 * (canvas.width / 800)}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.fillText(
+                    p.alive ? p.name : `💀 ${p.name}`,
+                    pos.x,
+                    pos.y + radius + 20 * (canvas.width / 800)
+                );
+                
+                // Dead marker
+                if (!p.alive) {
+                    ctx.fillStyle = 'rgba(255,0,0,0.3)';
+                    ctx.font = '30px Arial';
+                    ctx.fillText('✕', pos.x, pos.y + 10);
+                }
+            });
+            
+            // Draw crosshair for local player
+            if (me && me.alive) {
+                const pos = worldToScreen(me.x, me.y);
+                const radius = 15 * (canvas.width / 800);
+                ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+        }
+        
+        // Start game loop
+        gameLoop();
+        
+        // Handle resize
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+        });
+        
+        console.log('🎮 Танчики для 5 игроков загружены!');
+        console.log('Управление: WASD/Стрелки, Пробел - стрельба');
+        console.log('На телефоне - сенсорные кнопки');
+    </script>
+</body>
+</html>
